@@ -1,0 +1,285 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script>
+      jQuery(function() {
+        var blocks = $('[class|=floatable-block]');
+
+        var classes = {};
+
+        blocks.each(function() {
+          var className = this.className;
+          var classNames = className.split(' ');
+          var queryClass = 'floatable-block';
+          var queryClassLength = queryClass.length;
+
+          for (var i = 0; i < classNames.length; i++) {
+            if (classNames[i].slice(0, queryClassLength) != queryClass) {
+              return;
+            }
+
+            classes[classNames[i]] = true;
+          }
+        });
+
+        for (var className in classes) {
+          new FloatableGroupOfBlocks(className);
+        }
+
+
+        function FloatableGroupOfBlocks(className) {
+          var elems = $('.' + className);
+          var elemsArray = [];
+
+          elems.each(function() {
+            elemsArray.push($(this));
+          });
+
+          elemsArray.sort(sortByCSSTop);
+
+          for (var i = 0; i < elemsArray.length; i++) {
+            if (i == (elemsArray.length - 1)) {
+              new FloatableBlock({
+                block: elemsArray[i]
+              });
+
+              break;
+            }
+
+            new FloatableBlock({
+              block: elemsArray[i],
+              blockTopFinish: parseInt(elemsArray[i + 1].css('top'))
+            });
+          }
+
+
+          function sortByCSSTop(a, b) {
+            return parseInt(a.css('top')) - parseInt(b.css('top'));
+          }
+
+
+          function FloatableBlock(opt) {
+            var block = opt.block;
+
+            if (block.hasClass('fb-bumper')) {
+              return;
+            }
+
+            var blockTopFinish = opt.blockTopFinish || Infinity;
+            var marginTopForFixedPos = parseInt(block.attr('data-margin-top')) || 0;
+            var marginBottomForFixedPos = parseInt(block.attr('data-margin-bottom')) || marginTopForFixedPos;
+
+            var blockTopStart = block.offset().top;
+
+            $(window).on('scroll.floatableBlock', onDocScroll);
+
+
+            function onDocScroll() {
+              var blockTop = Math.ceil(block.offset().top);
+              var scrollTop = Math.ceil($(document).scrollTop());
+              var blockToWinTop = blockTop - scrollTop;
+
+              var blockHeight = block.height();
+              var blockBottom = scrollTop + marginTopForFixedPos + blockHeight;
+
+              if (blockTop < blockTopStart) {
+                block.css({
+                  position: 'absolute',
+                  top: blockTopStart
+                });
+              }
+
+              if ((blockBottom + marginBottomForFixedPos) > blockTopFinish) {
+                block.css({
+                  position: 'absolute',
+                  top: blockTopFinish - blockHeight - marginBottomForFixedPos
+                });
+              }
+
+              if (blockToWinTop < marginTopForFixedPos && blockTop >= blockTopStart && (blockBottom + marginBottomForFixedPos) < blockTopFinish) {
+                block.css({
+                  position: 'fixed',
+                  top: marginTopForFixedPos
+                });
+              }
+
+              if (blockToWinTop > marginTopForFixedPos && blockTop > (blockTopStart + 1)) {
+                block.css({
+                  position: 'fixed',
+                  top: marginTopForFixedPos
+                });
+              }
+            }
+          }
+        }
+      });
+
+    </script>
+    <style type="text/css">
+      body {
+        height: 5500px;
+      }
+
+      p {
+        width: 800px;
+        margin: 0 auto;
+      }
+
+      [class|="floatable-block"] {
+        position: absolute;
+
+        width: 200px;
+        height: 100px;
+
+        font-size: 4em;
+        text-align: center;
+        color: white;
+      }
+
+      .floatable-block-0 {
+        background: blue;
+      }
+
+      .a {
+        top: 440px;
+        left: 10px;
+      }
+
+      .b {
+        top: 740px;
+        left: 30px;
+      }
+
+      .c {
+        top: 1140px;
+        right: 30px;
+      }
+
+      .d {
+        top: 1740px;
+        left: 30px;
+      }
+
+      .e {
+        top: 2240px;
+        right: 30px;
+      }
+
+      .f {
+        top: 2940px;
+        right: 50px;
+      }
+
+      .floatable-block-1 {
+        background: red;
+      }
+
+      .g {
+        top: 440px;
+        right: 220px;
+      }
+
+      .h {
+        top: 940px;
+        right: 240px;
+      }
+
+      .i {
+        top: 1240px;
+        left: 240px;
+      }
+
+      .j {
+        top: 1540px;
+        right: 240px;
+      }
+
+      .k {
+        top: 2240px;
+        left: 240px;
+      }
+
+      .l {
+        top: 2640px;
+        left: 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Плагин "Плавающие блоки"</h1>
+    <p>Зависимости:</p>
+    <ul>
+      <li>jQuery</li>
+    </ul>
+    <p>Возможности</p>
+    <ul>
+      <li>Не зависит от порядка определения блоков в DOM</li>
+      <li>Поддерживает неограниченное количество очередей плавающих блоков</li>
+      <li>Есть возможность прервать очередь при помощи "блока-бампера" (блока с классом fb-bumper)</li>
+    </ul>
+    <p>Применение</p>
+    <ul>
+      <li>Все блоки должны быть изначально с position: absolute</li>
+      <li>Плагин ищет блоки с названиями классов, начинающихся с "floatable-block-", сам создает очереди из блоков с одинаковыми классами (т.е. например плагин сам подхватит блоки с классами "floatable-block-abc" и "floatable-block-def", но создаст 2 очереди, так как названия классов не совпадают полностью)</li>
+      <li>Остановка очереди осуществляется, с помощью блока с классом "fb-bumper", который тоже должен быть изначально с position: absolute</li>
+      <li>По умолчанию блок начинает плыть, когда расстояние от верхнего края окна браузера до блока равно 0. Это можно изменить с помощью атрибута data-margin-top</li>
+      <li>По умолчанию блок упирается в следующий плавабщий блок или блок-бампер, когда расстояние от него до препятствия равно data-margin-top (если оно задано) или 0 (если его не задавали). Также это значение можно задать вручную с помощью атрибута data-margin-bottom</li>
+    </ul>
+    <p>
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. In in luctus purus. Nulla sit amet diam laoreet, malesuada augue sit amet, aliquet tortor. Praesent quis orci odio. Aenean mollis vel velit sit amet tempus. Vivamus et massa ut ligula placerat pellentesque non eu dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vel semper nulla. Nulla viverra neque vehicula, fringilla nibh in, pharetra felis. Nulla varius arcu eget ligula ultrices gravida. Nullam scelerisque condimentum velit in euismod. Pellentesque non sagittis magna, ut interdum lacus. Vivamus vel semper ipsum. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut tincidunt venenatis dui, posuere gravida purus mattis sit amet.
+
+    Etiam dictum vel diam in tempor. Ut eu magna suscipit, posuere velit ac, rhoncus urna. Cras eu libero a lorem egestas faucibus. Donec vulputate dignissim nulla id sodales. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Sed at est nisi. Nullam pulvinar viverra ante, a vulputate diam aliquam nec. Pellentesque vehicula ut nulla semper fermentum. Suspendisse eget adipiscing orci, eget lobortis nisl. Morbi a erat a velit egestas semper sed ac est. In non tincidunt lectus, in dignissim odio. Aliquam sed neque urna. Curabitur sed augue porttitor, molestie leo ut, dictum magna. Duis vitae purus vel libero rhoncus placerat.
+
+    Pellentesque euismod, dolor vel euismod convallis, velit lacus gravida elit, eu fringilla ligula lacus et sem. Sed eu tellus felis. Aliquam nibh turpis, imperdiet vitae urna et, adipiscing vulputate eros. Aenean aliquam odio non tristique mattis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Maecenas consectetur nulla ac velit porta, et fringilla diam dictum. Mauris vel varius diam, commodo elementum libero. Nullam venenatis tellus nec hendrerit viverra. Etiam risus neque, condimentum tristique justo at, egestas elementum neque. Nulla lacinia tincidunt ante, quis volutpat nisi consectetur a. Quisque a imperdiet erat, id vulputate magna.
+
+    Etiam ornare nunc elit, non sagittis tortor elementum non. Suspendisse potenti. Quisque enim elit, lobortis eget pulvinar ac, lacinia vulputate mi. Aenean vehicula nec tortor vitae molestie. Donec vitae faucibus mauris. Duis tristique metus vitae metus elementum, a vulputate massa vehicula. Sed id quam quis tortor feugiat vehicula. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In libero massa, vehicula nec mi vitae, placerat elementum sem. Ut ut rutrum purus. Sed tincidunt dui vel egestas ornare. Nunc porta tincidunt neque, sit amet imperdiet mauris suscipit id. Fusce pharetra ligula a ipsum vehicula dapibus. Sed et gravida sem, vitae tristique nibh. Phasellus venenatis eleifend orci. Nullam commodo mollis tellus, sed aliquet nisi fringilla eu.
+
+    Pellentesque eu ornare quam. Aenean ut sollicitudin lacus, posuere imperdiet ligula. Fusce ut malesuada odio. Ut non mi hendrerit purus scelerisque interdum ac a velit. Etiam egestas rhoncus tempus. Sed pulvinar, nibh sed varius venenatis, sem sapien rhoncus diam, in semper tortor purus ut urna. Aenean porta metus enim, in rhoncus dolor porta id. Integer posuere nisl lectus, pellentesque lacinia felis tempor quis. Fusce pretium tincidunt sem nec vehicula. 
+
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. In in luctus purus. Nulla sit amet diam laoreet, malesuada augue sit amet, aliquet tortor. Praesent quis orci odio. Aenean mollis vel velit sit amet tempus. Vivamus et massa ut ligula placerat pellentesque non eu dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vel semper nulla. Nulla viverra neque vehicula, fringilla nibh in, pharetra felis. Nulla varius arcu eget ligula ultrices gravida. Nullam scelerisque condimentum velit in euismod. Pellentesque non sagittis magna, ut interdum lacus. Vivamus vel semper ipsum. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut tincidunt venenatis dui, posuere gravida purus mattis sit amet.
+
+    Etiam dictum vel diam in tempor. Ut eu magna suscipit, posuere velit ac, rhoncus urna. Cras eu libero a lorem egestas faucibus. Donec vulputate dignissim nulla id sodales. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Sed at est nisi. Nullam pulvinar viverra ante, a vulputate diam aliquam nec. Pellentesque vehicula ut nulla semper fermentum. Suspendisse eget adipiscing orci, eget lobortis nisl. Morbi a erat a velit egestas semper sed ac est. In non tincidunt lectus, in dignissim odio. Aliquam sed neque urna. Curabitur sed augue porttitor, molestie leo ut, dictum magna. Duis vitae purus vel libero rhoncus placerat.
+
+    Pellentesque euismod, dolor vel euismod convallis, velit lacus gravida elit, eu fringilla ligula lacus et sem. Sed eu tellus felis. Aliquam nibh turpis, imperdiet vitae urna et, adipiscing vulputate eros. Aenean aliquam odio non tristique mattis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Maecenas consectetur nulla ac velit porta, et fringilla diam dictum. Mauris vel varius diam, commodo elementum libero. Nullam venenatis tellus nec hendrerit viverra. Etiam risus neque, condimentum tristique justo at, egestas elementum neque. Nulla lacinia tincidunt ante, quis volutpat nisi consectetur a. Quisque a imperdiet erat, id vulputate magna.
+
+    Etiam ornare nunc elit, non sagittis tortor elementum non. Suspendisse potenti. Quisque enim elit, lobortis eget pulvinar ac, lacinia vulputate mi. Aenean vehicula nec tortor vitae molestie. Donec vitae faucibus mauris. Duis tristique metus vitae metus elementum, a vulputate massa vehicula. Sed id quam quis tortor feugiat vehicula. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In libero massa, vehicula nec mi vitae, placerat elementum sem. Ut ut rutrum purus. Sed tincidunt dui vel egestas ornare. Nunc porta tincidunt neque, sit amet imperdiet mauris suscipit id. Fusce pharetra ligula a ipsum vehicula dapibus. Sed et gravida sem, vitae tristique nibh. Phasellus venenatis eleifend orci. Nullam commodo mollis tellus, sed aliquet nisi fringilla eu.
+
+    Pellentesque eu ornare quam. Aenean ut sollicitudin lacus, posuere imperdiet ligula. Fusce ut malesuada odio. Ut non mi hendrerit purus scelerisque interdum ac a velit. Etiam egestas rhoncus tempus. Sed pulvinar, nibh sed varius venenatis, sem sapien rhoncus diam, in semper tortor purus ut urna. Aenean porta metus enim, in rhoncus dolor porta id. Integer posuere nisl lectus, pellentesque lacinia felis tempor quis. Fusce pretium tincidunt sem nec vehicula.</p>
+    <p>
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. In in luctus purus. Nulla sit amet diam laoreet, malesuada augue sit amet, aliquet tortor. Praesent quis orci odio. Aenean mollis vel velit sit amet tempus. Vivamus et massa ut ligula placerat pellentesque non eu dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vel semper nulla. Nulla viverra neque vehicula, fringilla nibh in, pharetra felis. Nulla varius arcu eget ligula ultrices gravida. Nullam scelerisque condimentum velit in euismod. Pellentesque non sagittis magna, ut interdum lacus. Vivamus vel semper ipsum. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut tincidunt venenatis dui, posuere gravida purus mattis sit amet.
+
+    Etiam dictum vel diam in tempor. Ut eu magna suscipit, posuere velit ac, rhoncus urna. Cras eu libero a lorem egestas faucibus. Donec vulputate dignissim nulla id sodales. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Sed at est nisi. Nullam pulvinar viverra ante, a vulputate diam aliquam nec. Pellentesque vehicula ut nulla semper fermentum. Suspendisse eget adipiscing orci, eget lobortis nisl. Morbi a erat a velit egestas semper sed ac est. In non tincidunt lectus, in dignissim odio. Aliquam sed neque urna. Curabitur sed augue porttitor, molestie leo ut, dictum magna. Duis vitae purus vel libero rhoncus placerat.
+
+    Pellentesque euismod, dolor vel euismod convallis, velit lacus gravida elit, eu fringilla ligula lacus et sem. Sed eu tellus felis. Aliquam nibh turpis, imperdiet vitae urna et, adipiscing vulputate eros. Aenean aliquam odio non tristique mattis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Maecenas consectetur nulla ac velit porta, et fringilla diam dictum. Mauris vel varius diam, commodo elementum libero. Nullam venenatis tellus nec hendrerit viverra. Etiam risus neque, condimentum tristique justo at, egestas elementum neque. Nulla lacinia tincidunt ante, quis volutpat nisi consectetur a. Quisque a imperdiet erat, id vulputate magna.
+
+    Etiam ornare nunc elit, non sagittis tortor elementum non. Suspendisse potenti. Quisque enim elit, lobortis eget pulvinar ac, lacinia vulputate mi. Aenean vehicula nec tortor vitae molestie. Donec vitae faucibus mauris. Duis tristique metus vitae metus elementum, a vulputate massa vehicula. Sed id quam quis tortor feugiat vehicula. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In libero massa, vehicula nec mi vitae, placerat elementum sem. Ut ut rutrum purus. Sed tincidunt dui vel egestas ornare. Nunc porta tincidunt neque, sit amet imperdiet mauris suscipit id. Fusce pharetra ligula a ipsum vehicula dapibus. Sed et gravida sem, vitae tristique nibh. Phasellus venenatis eleifend orci. Nullam commodo mollis tellus, sed aliquet nisi fringilla eu.
+
+    Pellentesque eu ornare quam. Aenean ut sollicitudin lacus, posuere imperdiet ligula. Fusce ut malesuada odio. Ut non mi hendrerit purus scelerisque interdum ac a velit. Etiam egestas rhoncus tempus. Sed pulvinar, nibh sed varius venenatis, sem sapien rhoncus diam, in semper tortor purus ut urna. Aenean porta metus enim, in rhoncus dolor porta id. Integer posuere nisl lectus, pellentesque lacinia felis tempor quis. Fusce pretium tincidunt sem nec vehicula. 
+
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. In in luctus purus. Nulla sit amet diam laoreet, malesuada augue sit amet, aliquet tortor. Praesent quis orci odio. Aenean mollis vel velit sit amet tempus. Vivamus et massa ut ligula placerat pellentesque non eu dolor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vel semper nulla. Nulla viverra neque vehicula, fringilla nibh in, pharetra felis. Nulla varius arcu eget ligula ultrices gravida. Nullam scelerisque condimentum velit in euismod. Pellentesque non sagittis magna, ut interdum lacus. Vivamus vel semper ipsum. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut tincidunt venenatis dui, posuere gravida purus mattis sit amet.
+
+    Etiam dictum vel diam in tempor. Ut eu magna suscipit, posuere velit ac, rhoncus urna. Cras eu libero a lorem egestas faucibus. Donec vulputate dignissim nulla id sodales. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Sed at est nisi. Nullam pulvinar viverra ante, a vulputate diam aliquam nec. Pellentesque vehicula ut nulla semper fermentum. Suspendisse eget adipiscing orci, eget lobortis nisl. Morbi a erat a velit egestas semper sed ac est. In non tincidunt lectus, in dignissim odio. Aliquam sed neque urna. Curabitur sed augue porttitor, molestie leo ut, dictum magna. Duis vitae purus vel libero rhoncus placerat.
+
+    Pellentesque euismod, dolor vel euismod convallis, velit lacus gravida elit, eu fringilla ligula lacus et sem. Sed eu tellus felis. Aliquam nibh turpis, imperdiet vitae urna et, adipiscing vulputate eros. Aenean aliquam odio non tristique mattis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Maecenas consectetur nulla ac velit porta, et fringilla diam dictum. Mauris vel varius diam, commodo elementum libero. Nullam venenatis tellus nec hendrerit viverra. Etiam risus neque, condimentum tristique justo at, egestas elementum neque. Nulla lacinia tincidunt ante, quis volutpat nisi consectetur a. Quisque a imperdiet erat, id vulputate magna.
+
+    Etiam ornare nunc elit, non sagittis tortor elementum non. Suspendisse potenti. Quisque enim elit, lobortis eget pulvinar ac, lacinia vulputate mi. Aenean vehicula nec tortor vitae molestie. Donec vitae faucibus mauris. Duis tristique metus vitae metus elementum, a vulputate massa vehicula. Sed id quam quis tortor feugiat vehicula. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In libero massa, vehicula nec mi vitae, placerat elementum sem. Ut ut rutrum purus. Sed tincidunt dui vel egestas ornare. Nunc porta tincidunt neque, sit amet imperdiet mauris suscipit id. Fusce pharetra ligula a ipsum vehicula dapibus. Sed et gravida sem, vitae tristique nibh. Phasellus venenatis eleifend orci. Nullam commodo mollis tellus, sed aliquet nisi fringilla eu.
+
+    Pellentesque eu ornare quam. Aenean ut sollicitudin lacus, posuere imperdiet ligula. Fusce ut malesuada odio. Ut non mi hendrerit purus scelerisque interdum ac a velit. Etiam egestas rhoncus tempus. Sed pulvinar, nibh sed varius venenatis, sem sapien rhoncus diam, in semper tortor purus ut urna. Aenean porta metus enim, in rhoncus dolor porta id. Integer posuere nisl lectus, pellentesque lacinia felis tempor quis. Fusce pretium tincidunt sem nec vehicula.</p>
+
+    <div class="floatable-block-0 b" data-margin-top="10" data-margin-bottom="10">b</div>
+    <div class="floatable-block-0 e" data-margin-top="10" data-margin-bottom="10">e</div>
+    <div class="floatable-block-0 c" data-margin-top="10" data-margin-bottom="10">c</div>
+    <div class="floatable-block-0 d fb-bumper" data-margin-top="10" data-margin-bottom="10">bump</div>
+    <div class="floatable-block-0 a" data-margin-top="10" data-margin-bottom="50">a</div>
+    <div class="floatable-block-0 f fb-bumper" data-margin-top="10" data-margin-bottom="10">bump</div>
+    <div class="floatable-block-1 g" data-margin-top="10" data-margin-bottom="10">g</div>
+    <div class="floatable-block-1 h" data-margin-top="10" data-margin-bottom="10">h</div>
+    <div class="floatable-block-1 i" data-margin-top="10" data-margin-bottom="10">i</div>
+    <div class="floatable-block-1 j">j</div>
+    <div class="floatable-block-1 k">k</div>
+    <div class="floatable-block-1 l fb-bumper">bump</div>
+
+  </body>
+</html>
